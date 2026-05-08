@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BENNU · EPHEMERIS STREAM</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100%; height:100%; background:#000; overflow:hidden;
+    font-family:'Courier New',monospace;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  #container { display:flex; width:100%; height:100%; }
+
+  .col {
+    flex:1; overflow:hidden; position:relative;
+    border-right:1px solid rgba(255,255,255,0.07);
+    cursor:pointer;
+  }
+  .col:last-child { border-right:none; }
+  .col:hover  { background:rgba(255,255,255,0.025); }
+  .col.paused { background:rgba(255,255,255,0.04); }
+
+  .col-inner { position:absolute; width:100%; will-change:transform; }
+
+  .row {
+    padding:0.9rem 1rem 0.85rem;
+    border-bottom:1px solid rgba(255,255,255,0.055);
+  }
+  .row-date {
+    font-size:1.05rem;
+    letter-spacing:0.06em;
+    color:rgba(255,255,255,0.9);
+    margin-bottom:0.3rem;
+    white-space:nowrap;
+  }
+  .row-au {
+    font-size:0.9rem;
+    letter-spacing:0.04em;
+    color:rgba(255,255,255,0.55);
+    margin-bottom:0.2rem;
+  }
+  .row-km {
+    font-size:0.78rem;
+    color:rgba(255,255,255,0.28);
+  }
+
+  .row.close { border-left:3px solid rgba(220,50,50,0.85); }
+  .row.close .row-date { color:#ff6060; }
+  .row.close .row-au   { color:rgba(255,140,140,0.85); }
+
+  .col.paused::after {
+    content:'PAUSED';
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-size:0.7rem; letter-spacing:0.35em;
+    color:rgba(255,255,255,0.2);
+    pointer-events:none;
+  }
+
+  #fade-top, #fade-bot {
+    position:fixed; left:0; right:0; height:130px;
+    pointer-events:none; z-index:20;
+  }
+  #fade-top { top:0;    background:linear-gradient(to bottom,#000 0%,transparent 100%); }
+  #fade-bot { bottom:0; background:linear-gradient(to top,  #000 0%,transparent 100%); }
+
+  #header {
+    position:fixed; top:18px; width:100%; text-align:center;
+    font-size:0.75rem; letter-spacing:0.35em; color:rgba(255,255,255,0.22);
+    z-index:30; pointer-events:none;
+  }
+  #hint {
+    position:fixed; bottom:22px; width:100%; text-align:center;
+    font-size:0.62rem; letter-spacing:0.25em; color:rgba(255,255,255,0.12);
+    z-index:30; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<div id="fade-top"></div>
+<div id="fade-bot"></div>
+<div id="header">101955 BENNU · HORIZONS EPHEMERIS · 2026—2135</div>
+<div id="hint">HOVER OR CLICK COLUMN TO PAUSE</div>
+<div id="container"></div>
+
+<script>
+const horizonsData = [
+  {date:"2026-Feb-14",au:1.571402,km:235078342},{date:"2027-Jan-01",au:2.230766,km:333717861},
+  {date:"2029-Jan-01",au:1.86094,km:278392652},{date:"2031-Jan-01",au:0.346933,km:51900368},
+  {date:"2033-Jan-01",au:2.191514,km:327845841},{date:"2035-Jan-01",au:1.938582,km:290007790},
+  {date:"2037-Jan-01",au:0.18665,km:27922483},{date:"2039-Jan-01",au:2.151332,km:321834679},
+  {date:"2041-Jan-01",au:1.996342,km:298648555},{date:"2043-Jan-01",au:0.117722,km:17610916},
+  {date:"2045-Jan-01",au:2.109531,km:315581273},{date:"2047-Jan-01",au:2.045633,km:306022315},
+  {date:"2049-Jan-01",au:0.178753,km:26741029},{date:"2051-Jan-01",au:2.064147,km:308791948},
+  {date:"2053-Jan-01",au:2.087224,km:312244301},{date:"2055-Jan-01",au:0.289826,km:43357280},
+  {date:"2057-Jan-01",au:2.026484,km:303157653},{date:"2059-Jan-01",au:2.112345,km:316002275},
+  {date:"2061-Jan-01",au:0.347015,km:51912660},{date:"2063-Jan-01",au:1.857159,km:277827077},
+  {date:"2065-Jan-01",au:2.233738,km:334162496},{date:"2067-Jan-01",au:1.093445,km:163577067},
+  {date:"2069-Jan-01",au:1.301232,km:194661568},{date:"2071-Jan-01",au:2.286203,km:342011109},
+  {date:"2073-Jan-01",au:1.648703,km:246642461},{date:"2075-Jan-01",au:0.535609,km:80125988},
+  {date:"2077-Jan-01",au:2.166773,km:324144642},{date:"2079-Jan-01",au:2.024648,km:302883011},
+  {date:"2081-Jan-01",au:0.361906,km:54140327},{date:"2083-Jan-01",au:1.795126,km:268547010},
+  {date:"2085-Jan-01",au:2.255985,km:337490623},{date:"2087-Jan-01",au:1.303817,km:195048227},
+  {date:"2089-Jan-01",au:0.977573,km:146242798},{date:"2091-Jan-01",au:2.238721,km:334907922},
+  {date:"2093-Jan-01",au:1.903867,km:284814445},{date:"2095-Jan-01",au:0.166885,km:24965708},
+  {date:"2097-Jan-01",au:1.918633,km:287023481},{date:"2099-Jan-01",au:2.219775,km:332073626},
+  {date:"2101-Jan-01",au:1.094132,km:163679779},{date:"2103-Jan-01",au:1.238569,km:185287298},
+  {date:"2105-Jan-01",au:2.272467,km:339956267},{date:"2107-Jan-01",au:1.771857,km:265066079},
+  {date:"2109-Jan-01",au:0.234649,km:35103053},{date:"2111-Jan-01",au:2.046342,km:306128371},
+  {date:"2113-Jan-01",au:2.1561,km:322547943},{date:"2115-Jan-01",au:0.825199,km:123448010},
+  {date:"2117-Jan-01",au:1.497487,km:224020820},{date:"2119-Jan-01",au:2.287103,km:342145781},
+  {date:"2121-Jan-01",au:1.574719,km:235574613},{date:"2123-Jan-01",au:0.602307,km:90103891},
+  {date:"2125-Jan-01",au:2.162236,km:323465841},{date:"2127-Jan-01",au:2.048957,km:306519590},
+  {date:"2129-Jan-01",au:0.484947,km:72547040},{date:"2131-Jan-01",au:1.734812,km:259524189},
+  {date:"2133-Jan-01",au:2.268572,km:339373481},{date:"2135-Jan-01",au:1.354564,km:202639819},
+  {date:"2135-Sep-01",au:0.086408,km:12926513},{date:"2135-Sep-05",au:0.07158,km:10708154},
+  {date:"2135-Sep-10",au:0.053537,km:8008990},{date:"2135-Sep-15",au:0.035925,km:5374298},
+  {date:"2135-Sep-20",au:0.018574,km:2778618},{date:"2135-Sep-22",au:0.011676,km:1746745},
+  {date:"2135-Sep-23",au:0.008242,km:1233002},{date:"2135-Sep-24",au:0.004847,km:725076},
+  {date:"2135-Sep-25",au:0.001783,km:266711}
+];
+
+const NUM_COLS = 5;
+// Different speeds for each column
+const SPEEDS   = [0.5, 1.1, 0.68, 1.45, 0.85];
+const container = document.getElementById('container');
+const colStates = [];
+
+for (let c = 0; c < NUM_COLS; c++) {
+  const colDiv  = document.createElement('div');
+  colDiv.className = 'col';
+  const inner   = document.createElement('div');
+  inner.className = 'col-inner';
+  colDiv.appendChild(inner);
+  container.appendChild(colDiv);
+
+  // Offset start position so each column shows a different part of the dataset
+  const offset  = Math.floor((c / NUM_COLS) * horizonsData.length);
+  const rotated = [...horizonsData.slice(offset), ...horizonsData.slice(0, offset)];
+  // Repeat 4× for seamless infinite scroll
+  const rows    = [...rotated, ...rotated, ...rotated, ...rotated];
+
+  rows.forEach(d => {
+    const row     = document.createElement('div');
+    row.className = d.au < 0.5 ? 'row close' : 'row';
+    row.innerHTML =
+      `<div class="row-date">${d.date}</div>` +
+      `<div class="row-au">${d.au.toFixed(6)} AU</div>` +
+      `<div class="row-km">${Math.round(d.km).toLocaleString()} KM</div>`;
+    inner.appendChild(row);
+  });
+
+  const state = {
+    inner,
+    speed: SPEEDS[c],
+    y: 0,
+    paused: false,
+    clickLocked: false
+  };
+
+  colDiv.addEventListener('mouseenter', () => {
+    if (!state.clickLocked) state.paused = true;
+  });
+  colDiv.addEventListener('mouseleave', () => {
+    if (!state.clickLocked) { state.paused = false; colDiv.classList.remove('paused'); }
+  });
+  colDiv.addEventListener('click', () => {
+    state.clickLocked = !state.clickLocked;
+    state.paused      = state.clickLocked;
+    colDiv.classList.toggle('paused', state.clickLocked);
+  });
+
+  colStates.push(state);
+}
+
+// Wait for layout, then start animation
+requestAnimationFrame(() => {
+  const ROW_H  = colStates[0].inner.querySelector('.row').offsetHeight || 90;
+  const LOOP   = ROW_H * horizonsData.length;
+
+  // Stagger start positions
+  colStates.forEach((s, i) => { s.y = -(i * LOOP / NUM_COLS); });
+
+  function tick() {
+    colStates.forEach(s => {
+      if (s.paused) return;
+      s.y -= s.speed;
+      // Loop: once we've scrolled 2 copies worth, reset by one copy
+      if (-s.y >= LOOP * 2) s.y += LOOP;
+      s.inner.style.transform = `translateY(${s.y}px)`;
+    });
+    requestAnimationFrame(tick);
+  }
+  tick();
+});
+</script>
+</body>
+</html>
